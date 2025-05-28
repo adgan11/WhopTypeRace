@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       .findOrCreateForum({
         input: {
           accessPassId: process.env.ACCESS_PASS_ID!,
-          name: "Car asncoasoi Forum",
+          name: "Render Ride AI",
           whoCanPost: "everyone",
         },
       }) as ForumResponse;
