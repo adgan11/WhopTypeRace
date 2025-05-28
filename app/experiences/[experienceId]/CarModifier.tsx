@@ -211,7 +211,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
 "${modificationPrompt}"
 
 Try it yourself here:  
-link lol
+https://whop.com/apps/app_S42iB0COVVUVwO/install/
 
 Before vs after ⬇️`,
           experienceId,
