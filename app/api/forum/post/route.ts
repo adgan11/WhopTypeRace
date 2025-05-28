@@ -66,9 +66,7 @@ export async function POST(request: NextRequest) {
 
     // Log environment variables (without exposing full values)
     console.log('🔑 Environment check:', {
-      hasAccessPassId: !!process.env.ACCESS_PASS_ID,
       hasUserAgentId: !!userAgentId,
-      accessPassIdPrefix: process.env.ACCESS_PASS_ID?.slice(0, 4),
       userAgentIdPrefix: userAgentId.slice(0, 4),
       companyIdPrefix: companyId.slice(0, 4)
     });
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
       .withCompany(companyId)
       .findOrCreateForum({
         input: {
-          accessPassId: process.env.ACCESS_PASS_ID!,
+          experienceId: targetExperienceId,
           name: "Render Ride AI",
           whoCanPost: "everyone",
         },
