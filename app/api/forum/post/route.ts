@@ -15,6 +15,14 @@ interface PostResponse {
   };
 }
 
+interface ExperienceResponse {
+  experience: {
+    company: {
+      id: string;
+    };
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { message, experienceId: targetExperienceId, attachments } = await request.json();
@@ -41,21 +49,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get business information for forum post
+    console.log('🔍 Fetching experience information...');
+    const experienceResult = await whopApi.getExperience({ experienceId: targetExperienceId }) as ExperienceResponse;
+    const companyId = experienceResult.experience.company.id;
+    
+    if (!companyId) {
+      console.error('❌ Failed to get company ID from experience');
+      return NextResponse.json(
+        { error: 'Failed to get company information' },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ Got company ID:', companyId);
+
     // Log environment variables (without exposing full values)
     console.log('🔑 Environment check:', {
-      hasCompanyId: !!process.env.COMPANY_ID,
       hasAccessPassId: !!process.env.ACCESS_PASS_ID,
       hasUserAgentId: !!userAgentId,
-      companyIdPrefix: process.env.COMPANY_ID?.slice(0, 4),
       accessPassIdPrefix: process.env.ACCESS_PASS_ID?.slice(0, 4),
-      userAgentIdPrefix: userAgentId.slice(0, 4)
+      userAgentIdPrefix: userAgentId.slice(0, 4),
+      companyIdPrefix: companyId.slice(0, 4)
     });
 
     // First, find or create the forum for this experience
     console.log('🔍 Finding or creating forum...');
     const forumResult = await whopApi
       .withUser(userAgentId)
-      .withCompany(process.env.COMPANY_ID!)
+      .withCompany(companyId)
       .findOrCreateForum({
         input: {
           accessPassId: process.env.ACCESS_PASS_ID!,
@@ -93,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     const postResult = await whopApi
       .withUser(userAgentId)
-      .withCompany(process.env.COMPANY_ID!)
+      .withCompany(companyId)
       .createForumPost({
         input: postInput,
       }) as PostResponse;
