@@ -13,22 +13,20 @@ export async function POST(request: Request) {
     }
 
     // Get the file from the request
-	 const formData = await request.formData();
-	 const file = formData.get('file') as File;
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
     
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    console.log('📁 Uploading file:', { size: file.size, type: file.type });
+    console.log('📁 Uploading file:', { name: file.name, size: file.size, type: file.type });
     
-
-	 const response = await whopApi
-	.withUser(userToken.userId)
-	.uploadAttachment({
-		file: file,
-		record: "forum_post",
-	});
+    // Upload to Whop
+    const response = await whopApi.uploadAttachment({
+      file: file,
+      record: "forum_post",
+    });
 
     console.log('✅ File uploaded successfully:', response);
 
