@@ -1,0 +1,95 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Whop Next.js App Template",
+  "colors": {
+    "primary": "#8B5CF6",
+    "light": "#A78BFA",
+    "dark": "#7C3AED"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "installation"
+      ]
+    },
+    {
+      "group": "Tutorial: Car Modification AI",
+      "pages": [
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Development Guide",
+      "pages": [
+        "development/setup",
+        "development/authentication",
+        "development/database",
+        "development/deployment"
+      ]
+    },
+    {
+      "group": "Components",
+      "pages": [
+        "components/overview",
+        "components/ui-components"
+      ]
+    },
+    {
+      "group": "Whop SDK",
+      "pages": [
+        "api-reference/introduction",
+        "api-reference/authentication",
+        "api-reference/webhook-handling"
+      ]
+    },
+    {
+      "group": "API Endpoints",
+      "pages": [
+        "api-reference/endpoints/users",
+        "api-reference/endpoints/payments",
+        "api-reference/endpoints/subscriptions"
+      ]
+    }
+  ],
+  "anchors": [
+    {
+      "name": "Whop Developer Docs",
+      "url": "https://docs.whop.com",
+      "icon": "book-open-cover"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://github.com/whopio",
+      "icon": "github"
+    },
+    {
+      "name": "Discord Community",
+      "url": "https://discord.gg/whop",
+      "icon": "discord"
+    }
+  ],
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "https://whop.com/support"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Whop Dashboard",
+    "url": "https://whop.com/hub"
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/whop",
+      "github": "https://github.com/whopio",
+      "discord": "https://discord.gg/whop"
+    }
+  }
+}

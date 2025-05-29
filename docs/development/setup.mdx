@@ -1,0 +1,443 @@
+---
+title: 'Development Setup'
+description: 'Configure your development environment for building Whop apps'
+---
+
+## Development Environment
+
+This guide will help you set up an optimal development environment for building Whop applications with the Next.js template.
+
+## Project Structure
+
+```
+whop-nextjs-app-template/
+├── app/                 # Next.js App Router
+│   ├── api/            # API routes
+│   ├── globals.css     # Global styles
+│   ├── layout.tsx      # Root layout
+│   └── page.tsx        # Home page
+├── components/         # Reusable UI components
+├── lib/               # Utility functions and configurations
+├── prisma/            # Database schema and migrations
+├── public/            # Static assets
+├── docs/              # Documentation (Mintlify)
+├── package.json       # Dependencies and scripts
+├── next.config.ts     # Next.js configuration
+├── tailwind.config.ts # Tailwind CSS configuration
+└── tsconfig.json      # TypeScript configuration
+```
+
+## Available Scripts
+
+The template includes several useful scripts for development:
+
+<CodeGroup>
+```bash Development
+# Start development server with Whop proxy
+pnpm dev
+
+# Start without proxy (not recommended for Whop apps)
+npx next dev
+```
+
+```bash Database
+# Push schema changes to database
+pnpm prisma:db:push
+
+# Generate Prisma client
+pnpm prisma:generate
+
+# Run database migrations
+pnpm prisma:migrate:dev
+
+# Open Prisma Studio
+npx prisma studio
+```
+
+```bash Production
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
+
+# Lint code
+pnpm lint
+```
+</CodeGroup>
+
+## Whop Development Proxy
+
+The template uses `@whop-apps/dev-proxy` to handle Whop's authentication and webhook requirements during development.
+
+### How it works:
+1. The proxy server runs alongside your Next.js app
+2. It handles Whop authentication flows
+3. It forwards webhooks to your local development server
+4. It provides debugging tools for Whop SDK calls
+
+### Proxy Configuration
+
+The proxy is configured in your `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev": "whop-proxy --command 'next dev --turbopack'"
+  }
+}
+```
+
+## Environment Variables
+
+### Required Variables
+
+```env
+# Whop App Configuration
+WHOP_APP_ID=your_app_id
+WHOP_APP_SECRET=your_app_secret  
+WHOP_WEBHOOK_SECRET=your_webhook_secret
+
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/database"
+```
+
+### Optional Variables
+
+```env
+# OpenAI (for AI features)
+OPENAI_API_KEY=your_openai_key
+
+# Next.js Auth (if using NextAuth.js)
+NEXTAUTH_SECRET=random_secret_string
+NEXTAUTH_URL=http://localhost:3000
+
+# Development
+NODE_ENV=development
+PORT=3000
+```
+
+<Tip>
+  Use different environment files for different stages:
+  - `.env.local` - Local development (ignored by git)
+  - `.env.development` - Development environment
+  - `.env.production` - Production environment
+</Tip>
+
+## Code Quality Tools
+
+### Biome Configuration
+
+The template uses [Biome](https://biomejs.dev/) for formatting and linting:
+
+```json
+{
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  }
+}
+```
+
+### VS Code Integration
+
+Install the recommended extensions:
+
+```json
+{
+  "recommendations": [
+    "biomejs.biome",
+    "bradlc.vscode-tailwindcss",
+    "prisma.prisma",
+    "ms-vscode.vscode-typescript-next"
+  ]
+}
+```
+
+## Database Development
+
+### Prisma Workflow
+
+<Steps>
+  <Step title="Modify Schema">
+    Edit `prisma/schema.prisma` to add/modify database models:
+    
+    ```prisma
+    model User {
+      id        String   @id @default(cuid())
+      email     String   @unique
+      whopId    String   @unique
+      createdAt DateTime @default(now())
+      updatedAt DateTime @updatedAt
+    }
+    ```
+  </Step>
+
+  <Step title="Push Changes">
+    For development, use `db push` for quick iteration:
+    ```bash
+    pnpm prisma:db:push
+    ```
+  </Step>
+
+  <Step title="Generate Client">
+    Regenerate the Prisma client with new types:
+    ```bash
+    pnpm prisma:generate
+    ```
+  </Step>
+
+  <Step title="Create Migration (Production)">
+    For production deployments, create proper migrations:
+    ```bash
+    pnpm prisma:migrate:dev
+    ```
+  </Step>
+</Steps>
+
+### Database Seeding
+
+Create a seed script in `prisma/seed.ts`:
+
+```typescript
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  // Create sample data
+  const user = await prisma.user.create({
+    data: {
+      email: 'test@example.com',
+      whopId: 'whop_user_123',
+    },
+  })
+  
+  console.log('Created user:', user)
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
+```
+
+Add to `package.json`:
+```json
+{
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
+```
+
+## Hot Reload and Development
+
+### Next.js Features
+
+The template is configured with:
+- **Turbopack**: Faster bundling in development
+- **App Router**: Modern routing with layouts and streaming
+- **TypeScript**: Full type safety
+- **Tailwind CSS**: Utility-first styling
+
+### Whop SDK Hot Reload
+
+When developing with the Whop SDK, changes to webhook handlers and API routes will hot reload automatically.
+
+## Debugging
+
+### Whop SDK Debug Mode
+
+Enable debug mode for detailed logging:
+
+```typescript
+import { WhopAPI } from '@whop/api'
+
+const whop = new WhopAPI({
+  apiKey: process.env.WHOP_APP_SECRET!,
+  debug: process.env.NODE_ENV === 'development'
+})
+```
+
+### Database Debugging
+
+Use Prisma Studio to inspect your database:
+```bash
+npx prisma studio
+```
+
+This opens a web interface at `http://localhost:5555`
+
+### Browser DevTools
+
+The template includes source maps for easy debugging:
+- Set breakpoints in your TypeScript code
+- Inspect component state and props
+- Monitor API calls and responses
+
+## Testing
+
+### Setup Testing Framework
+
+Add testing dependencies:
+
+```bash
+pnpm add -D jest @testing-library/react @testing-library/jest-dom
+```
+
+Create `jest.config.js`:
+```javascript
+const nextJest = require('next/jest')
+
+const createJestConfig = nextJest({
+  dir: './',
+})
+
+const customJestConfig = {
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironment: 'jest-environment-jsdom',
+}
+
+module.exports = createJestConfig(customJestConfig)
+```
+
+### Test Whop Integration
+
+Create tests for your Whop integration:
+
+```typescript
+// __tests__/whop-integration.test.ts
+import { WhopAPI } from '@whop/api'
+
+describe('Whop Integration', () => {
+  it('should initialize SDK correctly', () => {
+    const whop = new WhopAPI({
+      apiKey: 'test-key'
+    })
+    
+    expect(whop).toBeDefined()
+  })
+})
+```
+
+## Performance Monitoring
+
+### Next.js Analytics
+
+Add performance monitoring:
+
+```typescript
+// app/layout.tsx
+import { Analytics } from '@vercel/analytics/react'
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <Analytics />
+      </body>
+    </html>
+  )
+}
+```
+
+### Bundle Analysis
+
+Analyze your bundle size:
+
+```bash
+# Install bundle analyzer
+pnpm add -D @next/bundle-analyzer
+
+# Add to next.config.ts
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+})
+
+module.exports = withBundleAnalyzer(nextConfig)
+
+# Run analysis
+ANALYZE=true pnpm build
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Whop proxy not starting">
+    **Solution:**
+    1. Check your Whop credentials in `.env.local`
+    2. Ensure port 3000 is available
+    3. Try running without Turbopack: `whop-proxy --command 'next dev'`
+  </Accordion>
+
+  <Accordion title="Database connection issues">
+    **Solutions:**
+    1. Verify `DATABASE_URL` format
+    2. Check if database server is running
+    3. Test connection with Prisma Studio: `npx prisma studio`
+  </Accordion>
+
+  <Accordion title="TypeScript errors">
+    **Solutions:**
+    1. Regenerate Prisma client: `pnpm prisma:generate`
+    2. Restart TypeScript server in VS Code: `Cmd/Ctrl + Shift + P` → "TypeScript: Restart TS Server"
+    3. Clear Next.js cache: `rm -rf .next`
+  </Accordion>
+
+  <Accordion title="Hot reload not working">
+    **Solutions:**
+    1. Check file watch limits (Linux): `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf`
+    2. Restart development server
+    3. Check for syntax errors in files
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Authentication Setup"
+    icon="shield"
+    href="/development/authentication"
+  >
+    Configure Whop authentication for your app
+  </Card>
+  <Card
+    title="Database Guide"
+    icon="database"
+    href="/development/database"
+  >
+    Learn advanced database patterns
+  </Card>
+  <Card
+    title="Deployment"
+    icon="rocket"
+    href="/development/deployment"
+  >
+    Deploy your app to production
+  </Card>
+  <Card
+    title="API Reference"
+    icon="book"
+    href="/api-reference/introduction"
+  >
+    Explore the Whop SDK API
+  </Card>
+</CardGroup> 

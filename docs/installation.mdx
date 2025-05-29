@@ -1,0 +1,327 @@
+---
+title: 'Installation'
+description: 'Complete installation guide for the Whop Next.js App Template'
+---
+
+## System Requirements
+
+Before installing the Whop Next.js App Template, ensure your system meets these requirements:
+
+### Required Software
+
+<AccordionGroup>
+  <Accordion title="Node.js (v18 or higher)">
+    Download and install Node.js from [nodejs.org](https://nodejs.org/)
+    
+    Verify installation:
+    ```bash
+    node --version
+    npm --version
+    ```
+  </Accordion>
+
+  <Accordion title="Package Manager (pnpm recommended)">
+    Install pnpm globally:
+    ```bash
+    npm install -g pnpm
+    ```
+    
+    Verify installation:
+    ```bash
+    pnpm --version
+    ```
+  </Accordion>
+
+  <Accordion title="Git">
+    Download from [git-scm.com](https://git-scm.com/) or use your system's package manager:
+    
+    ```bash
+    # macOS (with Homebrew)
+    brew install git
+    
+    # Ubuntu/Debian
+    sudo apt-get install git
+    
+    # Windows (with Chocolatey)
+    choco install git
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Database
+
+Choose one of these database options:
+
+<Tabs>
+  <Tab title="PostgreSQL (Local)">
+    **macOS (Homebrew):**
+    ```bash
+    brew install postgresql
+    brew services start postgresql
+    ```
+    
+    **Ubuntu/Debian:**
+    ```bash
+    sudo apt-get install postgresql postgresql-contrib
+    sudo systemctl start postgresql
+    ```
+    
+    **Windows:**
+    Download from [postgresql.org](https://www.postgresql.org/download/windows/)
+  </Tab>
+  
+  <Tab title="Cloud Database (Recommended)">
+    For easier setup, use a cloud database service:
+    
+    - **[Supabase](https://supabase.com/)** - Free tier available
+    - **[Neon](https://neon.tech/)** - Serverless PostgreSQL
+    - **[PlanetScale](https://planetscale.com/)** - MySQL with branching
+    - **[Railway](https://railway.app/)** - PostgreSQL hosting
+  </Tab>
+</Tabs>
+
+## Installation Methods
+
+### Method 1: Clone from GitHub (Recommended)
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/whopio/whop-nextjs-app-template.git my-whop-app
+    cd my-whop-app
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Copy environment template">
+    ```bash
+    cp .env.example .env.local
+    ```
+  </Step>
+</Steps>
+
+### Method 2: Use as Template
+
+1. Go to the [GitHub repository](https://github.com/whopio/whop-nextjs-app-template)
+2. Click "Use this template" → "Create a new repository"
+3. Clone your new repository:
+   ```bash
+   git clone https://github.com/yourusername/your-repo-name.git
+   cd your-repo-name
+   pnpm install
+   ```
+
+### Method 3: Download ZIP
+
+1. Visit the [GitHub repository](https://github.com/whopio/whop-nextjs-app-template)
+2. Click "Code" → "Download ZIP"
+3. Extract the ZIP file
+4. Navigate to the extracted folder:
+   ```bash
+   cd whop-nextjs-app-template-main
+   pnpm install
+   ```
+
+## Environment Configuration
+
+### Required Environment Variables
+
+Create a `.env.local` file in your project root:
+
+```env
+# Whop Configuration (Required)
+WHOP_APP_ID=your_app_id_here
+WHOP_APP_SECRET=your_app_secret_here
+WHOP_WEBHOOK_SECRET=your_webhook_secret_here
+
+# Database Configuration (Required)
+DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+
+# OpenAI Configuration (Optional)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Next.js Configuration (Optional)
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=http://localhost:3000
+```
+
+<Warning>
+  Never commit your `.env.local` file to version control. It's already included in `.gitignore`.
+</Warning>
+
+### Getting Whop Credentials
+
+<Steps>
+  <Step title="Create a Whop account">
+    Sign up at [whop.com](https://whop.com) if you haven't already.
+  </Step>
+
+  <Step title="Access the Whop Hub">
+    Navigate to [whop.com/hub](https://whop.com/hub) and log in.
+  </Step>
+
+  <Step title="Create a new app">
+    1. Click "Apps" in the sidebar
+    2. Click "Create App"
+    3. Fill in your app details:
+       - **Name**: Your app name
+       - **Description**: Brief description
+       - **Category**: Choose appropriate category
+  </Step>
+
+  <Step title="Get your credentials">
+    After creating your app:
+    1. Go to your app settings
+    2. Find the "API Keys" section
+    3. Copy your `App ID` and `App Secret`
+    4. Generate a webhook secret for secure webhook handling
+  </Step>
+</Steps>
+
+## Database Setup
+
+### Initialize the Database
+
+<Steps>
+  <Step title="Configure your database URL">
+    Update the `DATABASE_URL` in your `.env.local` file with your database connection string.
+  </Step>
+
+  <Step title="Push the schema">
+    ```bash
+    pnpm prisma:db:push
+    ```
+    
+    This command creates the database tables based on your Prisma schema.
+  </Step>
+
+  <Step title="Generate Prisma client">
+    ```bash
+    pnpm prisma:generate
+    ```
+    
+    This generates the type-safe Prisma client for your database.
+  </Step>
+
+  <Step title="Verify the setup">
+    ```bash
+    pnpm prisma studio
+    ```
+    
+    This opens Prisma Studio at `http://localhost:5555` to view your database.
+  </Step>
+</Steps>
+
+## Verification
+
+### Test Your Installation
+
+<Steps>
+  <Step title="Start the development server">
+    ```bash
+    pnpm dev
+    ```
+    
+    The app should start at `http://localhost:3000`
+  </Step>
+
+  <Step title="Check the health endpoint">
+    Visit `http://localhost:3000/api/health` to verify the API is working.
+  </Step>
+
+  <Step title="Test Whop integration">
+    Visit `http://localhost:3000/api/auth/test` to verify Whop SDK integration.
+  </Step>
+</Steps>
+
+### Common Installation Issues
+
+<AccordionGroup>
+  <Accordion title="Node.js version conflicts">
+    If you have multiple Node.js versions, use a version manager:
+    
+    **Using nvm:**
+    ```bash
+    nvm install 18
+    nvm use 18
+    ```
+    
+    **Using fnm:**
+    ```bash
+    fnm install 18
+    fnm use 18
+    ```
+  </Accordion>
+
+  <Accordion title="Permission errors on macOS/Linux">
+    If you get permission errors when installing pnpm globally:
+    ```bash
+    sudo npm install -g pnpm
+    ```
+    
+    Or configure npm to use a different directory for global packages.
+  </Accordion>
+
+  <Accordion title="Database connection issues">
+    Common database connection problems:
+    
+    - **Wrong connection string**: Verify your `DATABASE_URL` format
+    - **Database not running**: Start your PostgreSQL service
+    - **Firewall blocking**: Check firewall settings for database port (usually 5432)
+    - **Authentication failed**: Verify username and password
+  </Accordion>
+
+  <Accordion title="Port 3000 already in use">
+    Change the development port:
+    ```bash
+    PORT=3001 pnpm dev
+    ```
+    
+    Or kill the process using port 3000:
+    ```bash
+    lsof -ti:3000 | xargs kill -9
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you have the template installed, you're ready to:
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get your app running in development mode
+  </Card>
+  <Card
+    title="Development Setup"
+    icon="code"
+    href="/development/setup"
+  >
+    Set up your development environment
+  </Card>
+  <Card
+    title="Authentication"
+    icon="shield"
+    href="/development/authentication"
+  >
+    Configure Whop authentication
+  </Card>
+  <Card
+    title="Database Guide"
+    icon="database"
+    href="/development/database"
+  >
+    Learn about database management
+  </Card>
+</CardGroup>
+
+Need help? Join our [Discord community](https://discord.gg/whop) or check the [troubleshooting guide](/development/setup). 

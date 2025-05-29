@@ -1,0 +1,326 @@
+---
+title: 'API Reference'
+description: 'Complete reference for the Whop SDK and API integration'
+---
+
+## Whop SDK Overview
+
+The Whop Next.js App Template comes pre-configured with the latest Whop SDK, providing seamless integration with the Whop platform.
+
+## SDK Configuration
+
+The Whop SDK is initialized in your application with the following configuration:
+
+```typescript
+import { WhopAPI } from '@whop/api'
+
+const whop = new WhopAPI({
+  apiKey: process.env.WHOP_APP_SECRET!,
+  debug: process.env.NODE_ENV === 'development'
+})
+```
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card
+    title="User Authentication"
+    icon="shield"
+    href="/api-reference/authentication"
+  >
+    Handle user authentication and session management
+  </Card>
+  <Card
+    title="Webhook Processing"
+    icon="webhook"
+    href="/api-reference/webhook-handling"
+  >
+    Process real-time events from Whop
+  </Card>
+  <Card
+    title="Payment Integration"
+    icon="credit-card"
+    href="/api-reference/endpoints/payments"
+  >
+    Manage payments and subscriptions
+  </Card>
+  <Card
+    title="User Management"
+    icon="users"
+    href="/api-reference/endpoints/users"
+  >
+    Access and manage user data
+  </Card>
+</CardGroup>
+
+## Authentication
+
+### App-level Authentication
+
+Your app authenticates with Whop using your app credentials:
+
+```typescript
+// Environment variables required
+WHOP_APP_ID=your_app_id
+WHOP_APP_SECRET=your_app_secret
+```
+
+### User Authentication
+
+Users authenticate through Whop's OAuth flow:
+
+```typescript
+// Redirect user to Whop authorization
+const authUrl = `https://whop.com/oauth?client_id=${process.env.WHOP_APP_ID}&redirect_uri=${redirectUri}&response_type=code`
+```
+
+## Available Methods
+
+### User Management
+
+<Tabs>
+  <Tab title="Get User">
+    ```typescript
+    const user = await whop.users.get({
+      id: 'user_id'
+    })
+    ```
+  </Tab>
+  
+  <Tab title="List Users">
+    ```typescript
+    const users = await whop.users.list({
+      limit: 10,
+      page: 1
+    })
+    ```
+  </Tab>
+  
+  <Tab title="Update User">
+    ```typescript
+    const updatedUser = await whop.users.update({
+      id: 'user_id',
+      metadata: {
+        custom_field: 'value'
+      }
+    })
+    ```
+  </Tab>
+</Tabs>
+
+### Membership Management
+
+<Tabs>
+  <Tab title="Get Membership">
+    ```typescript
+    const membership = await whop.memberships.get({
+      id: 'membership_id'
+    })
+    ```
+  </Tab>
+  
+  <Tab title="List Memberships">
+    ```typescript
+    const memberships = await whop.memberships.list({
+      userId: 'user_id'
+    })
+    ```
+  </Tab>
+  
+  <Tab title="Cancel Membership">
+    ```typescript
+    const cancelled = await whop.memberships.cancel({
+      id: 'membership_id'
+    })
+    ```
+  </Tab>
+</Tabs>
+
+### Payment Processing
+
+<Tabs>
+  <Tab title="Create Payment Link">
+    ```typescript
+    const paymentLink = await whop.payments.createLink({
+      productId: 'product_id',
+      userId: 'user_id',
+      successUrl: 'https://yourapp.com/success',
+      cancelUrl: 'https://yourapp.com/cancel'
+    })
+    ```
+  </Tab>
+  
+  <Tab title="Get Payment">
+    ```typescript
+    const payment = await whop.payments.get({
+      id: 'payment_id'
+    })
+    ```
+  </Tab>
+  
+  <Tab title="Refund Payment">
+    ```typescript
+    const refund = await whop.payments.refund({
+      id: 'payment_id',
+      amount: 1000 // Amount in cents
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Webhook Events
+
+The template handles the following webhook events:
+
+| Event | Description |
+|-------|-------------|
+| `payment.completed` | Payment successfully processed |
+| `membership.created` | New membership created |
+| `membership.cancelled` | Membership cancelled |
+| `user.created` | New user registered |
+| `user.updated` | User information updated |
+
+### Webhook Handler Example
+
+```typescript
+// app/api/webhooks/whop/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyWebhookSignature } from '@whop-apps/sdk'
+
+export async function POST(request: NextRequest) {
+  const body = await request.text()
+  const signature = request.headers.get('whop-signature')
+  
+  // Verify webhook signature
+  const isValid = verifyWebhookSignature(
+    body,
+    signature,
+    process.env.WHOP_WEBHOOK_SECRET!
+  )
+  
+  if (!isValid) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+  
+  const event = JSON.parse(body)
+  
+  switch (event.type) {
+    case 'payment.completed':
+      await handlePaymentCompleted(event.data)
+      break
+    case 'membership.created':
+      await handleMembershipCreated(event.data)
+      break
+    default:
+      console.log(`Unhandled webhook event: ${event.type}`)
+  }
+  
+  return NextResponse.json({ success: true })
+}
+```
+
+## Error Handling
+
+The SDK provides comprehensive error handling:
+
+```typescript
+import { WhopError } from '@whop/api'
+
+try {
+  const user = await whop.users.get({ id: 'invalid_id' })
+} catch (error) {
+  if (error instanceof WhopError) {
+    console.error(`Whop API Error: ${error.message}`)
+    console.error(`Status: ${error.status}`)
+    console.error(`Code: ${error.code}`)
+  } else {
+    console.error('Unexpected error:', error)
+  }
+}
+```
+
+## Rate Limiting
+
+The Whop API implements rate limiting. The SDK automatically handles:
+
+- **Rate limit headers**: Tracks remaining requests
+- **Automatic retries**: Retries failed requests with exponential backoff
+- **Queue management**: Prevents hitting rate limits
+
+```typescript
+const whop = new WhopAPI({
+  apiKey: process.env.WHOP_APP_SECRET!,
+  rateLimitOptions: {
+    maxRetries: 3,
+    retryDelay: 1000 // 1 second
+  }
+})
+```
+
+## Testing
+
+### Mock the SDK for Testing
+
+```typescript
+// __tests__/setup.ts
+import { WhopAPI } from '@whop/api'
+
+jest.mock('@whop/api')
+
+const mockWhop = {
+  users: {
+    get: jest.fn(),
+    list: jest.fn(),
+    update: jest.fn()
+  },
+  memberships: {
+    get: jest.fn(),
+    list: jest.fn(),
+    cancel: jest.fn()
+  }
+}
+
+;(WhopAPI as jest.Mock).mockImplementation(() => mockWhop)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Authentication Guide"
+    icon="shield"
+    href="/api-reference/authentication"
+  >
+    Learn how to implement user authentication
+  </Card>
+  <Card
+    title="Webhook Handling"
+    icon="webhook"
+    href="/api-reference/webhook-handling"
+  >
+    Process real-time events from Whop
+  </Card>
+  <Card
+    title="User Endpoints"
+    icon="users"
+    href="/api-reference/endpoints/users"
+  >
+    User management API reference
+  </Card>
+  <Card
+    title="Payment Endpoints"
+    icon="credit-card"
+    href="/api-reference/endpoints/payments"
+  >
+    Payment and subscription APIs
+  </Card>
+</CardGroup>
+
+## Support
+
+Need help with the Whop SDK?
+
+- **Documentation**: [docs.whop.com](https://docs.whop.com)
+- **Discord**: [discord.gg/whop](https://discord.gg/whop)
+- **GitHub**: [github.com/whopio](https://github.com/whopio)
+- **Support**: [whop.com/support](https://whop.com/support) 
