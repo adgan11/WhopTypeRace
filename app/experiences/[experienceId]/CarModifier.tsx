@@ -20,6 +20,8 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const isDrawingRef = useRef(false);
 
   // Get current user ID on component mount
   useEffect(() => {
@@ -56,31 +58,34 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
 
     const img = new Image();
     img.onload = () => {
-      // Calculate dimensions maintaining aspect ratio
-      const maxWidth = 800;
-      const maxHeight = 600;
-      let width = img.width;
-      let height = img.height;
-      
-      // Scale down if image is too large
-      if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height);
-        width = width * ratio;
-        height = height * ratio;
-      }
+      // Use the actual image dimensions as internal canvas dimensions
+      // This ensures the painting coordinates are always relative to the actual image
+      const imageWidth = img.width;
+      const imageHeight = img.height;
 
-      // Set canvas dimensions
-      canvas.width = width;
-      canvas.height = height;
-      maskCanvas.width = width;
-      maskCanvas.height = height;
+      // Set both canvases to the actual image dimensions internally
+      canvas.width = imageWidth;
+      canvas.height = imageHeight;
+      maskCanvas.width = imageWidth;
+      maskCanvas.height = imageHeight;
 
-      // Draw original image on main canvas
-      ctx.drawImage(img, 0, 0, width, height);
+      // Remove any explicit CSS sizing - let CSS handle the display scaling
+      canvas.style.width = '';
+      canvas.style.height = '';
+      maskCanvas.style.width = '';
+      maskCanvas.style.height = '';
+
+      // Draw original image on main canvas at full resolution
+      ctx.drawImage(img, 0, 0, imageWidth, imageHeight);
 
       // Initialize mask canvas with black background
       maskCtx.fillStyle = '#000000';
-      maskCtx.fillRect(0, 0, width, height);
+      maskCtx.fillRect(0, 0, imageWidth, imageHeight);
+      
+      // Configure mask canvas for smooth drawing
+      maskCtx.lineCap = 'round';
+      maskCtx.lineJoin = 'round';
+      maskCtx.globalCompositeOperation = 'source-over';
     };
     img.src = uploadedImage;
   };
@@ -104,33 +109,80 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     reader.readAsDataURL(file);
   };
 
-  const getMouseCoordinates = (e: MouseEvent, canvas: HTMLCanvasElement) => {
+  const getCanvasCoordinates = (e: MouseEvent | React.MouseEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
-    const containerWidth = rect.width;
-    const containerHeight = rect.height;
     
-    // Calculate the scaling factors
-    const scaleX = canvas.width / containerWidth;
-    const scaleY = canvas.height / containerHeight;
-    
-    // Get mouse position relative to the container
+    // Get mouse position relative to the displayed canvas
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Scale the coordinates
+    // Get the internal canvas dimensions (actual resolution)
+    const internalWidth = canvas.width;
+    const internalHeight = canvas.height;
+    
+    // Get the displayed canvas dimensions (CSS size)
+    const displayedWidth = rect.width;
+    const displayedHeight = rect.height;
+    
+    // Calculate the scale factors from displayed size to internal size
+    const scaleX = internalWidth / displayedWidth;
+    const scaleY = internalHeight / displayedHeight;
+    
+    // Map mouse coordinates to internal canvas coordinates
+    const internalX = mouseX * scaleX;
+    const internalY = mouseY * scaleY;
+    
+    // Clamp to canvas bounds
+    const clampedX = Math.max(0, Math.min(internalWidth - 1, internalX));
+    const clampedY = Math.max(0, Math.min(internalHeight - 1, internalY));
+    
     return {
-      x: mouseX * scaleX,
-      y: mouseY * scaleY
+      x: clampedX,
+      y: clampedY
     };
   };
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    draw(e);
+  const drawLine = (ctx: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }) => {
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+  const drawCircle = (ctx: CanvasRenderingContext2D, point: { x: number; y: number }) => {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, brushSize / 2, 0, 2 * Math.PI);
+    ctx.fill();
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    const maskCanvas = maskCanvasRef.current;
+    if (!canvas || !maskCanvas) return;
+
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+
+    setIsDrawing(true);
+    isDrawingRef.current = true;
+    
+    const point = getCanvasCoordinates(e, canvas);
+    lastPointRef.current = point;
+    
+    // Draw initial circle at the starting point
+    drawCircle(maskCtx, point);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawingRef.current) return;
     
     const canvas = canvasRef.current;
     const maskCanvas = maskCanvasRef.current;
@@ -139,18 +191,80 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     const maskCtx = maskCanvas.getContext('2d');
     if (!maskCtx) return;
 
-    const coords = getMouseCoordinates(e.nativeEvent, canvas);
+    const currentPoint = getCanvasCoordinates(e, canvas);
     
-    // Draw white circle on mask canvas
-    maskCtx.fillStyle = '#FFFFFF';
-    maskCtx.beginPath();
-    maskCtx.arc(coords.x, coords.y, brushSize / 2, 0, 2 * Math.PI);
-    maskCtx.fill();
+    if (lastPointRef.current) {
+      // Draw a line from the last point to the current point for smooth drawing
+      drawLine(maskCtx, lastPointRef.current, currentPoint);
+    }
+    
+    lastPointRef.current = currentPoint;
   };
 
-  const stopDrawing = () => {
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     setIsDrawing(false);
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
   };
+
+  const handleMouseLeave = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    setIsDrawing(false);
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+  };
+
+  // Add global mouse event listeners for better tracking
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isDrawingRef.current) return;
+      
+      const canvas = canvasRef.current;
+      const maskCanvas = maskCanvasRef.current;
+      if (!canvas || !maskCanvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const isOverCanvas = e.clientX >= rect.left && 
+                          e.clientX <= rect.right && 
+                          e.clientY >= rect.top && 
+                          e.clientY <= rect.bottom;
+      
+      if (!isOverCanvas) {
+        setIsDrawing(false);
+        isDrawingRef.current = false;
+        lastPointRef.current = null;
+        return;
+      }
+
+      const maskCtx = maskCanvas.getContext('2d');
+      if (!maskCtx) return;
+
+      const currentPoint = getCanvasCoordinates(e, canvas);
+      
+      if (lastPointRef.current) {
+        drawLine(maskCtx, lastPointRef.current, currentPoint);
+      }
+      
+      lastPointRef.current = currentPoint;
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsDrawing(false);
+      isDrawingRef.current = false;
+      lastPointRef.current = null;
+    };
+
+    if (isDrawing) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleGlobalMouseMove);
+        document.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [isDrawing, brushSize]);
 
   const clearMask = () => {
     const maskCanvas = maskCanvasRef.current;
@@ -341,7 +455,7 @@ Before vs after ⬇️`,
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-blue-800 font-semibold">AI cajdwjar bbaaModification sStudiooiio</span>
+          <span className="text-blue-800 font-semibold">AI Car Modification Studio</span>
         </div>
         <p className="text-gray-600 max-w-2xl mx-auto">
           Transform your car with AI-powered modifications. Upload your car photo, paint the areas you want to change, and watch AI bring your vision to life.
@@ -437,23 +551,28 @@ Before vs after ⬇️`,
               </div>
 
               {/* Canvas */}
-              <div className="relative bg-gray-50 rounded-xl overflow-hidden border-2 border-gray-200" style={{ minHeight: '300px' }}>
-                <canvas
-                  ref={canvasRef}
-                  className="absolute top-0 left-0 w-full h-full"
-                  style={{ objectFit: 'contain' }}
-                />
-                <canvas
-                  ref={maskCanvasRef}
-                  className="absolute top-0 left-0 w-full h-full cursor-crosshair opacity-40"
-                  style={{ objectFit: 'contain' }}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                />
-                {!uploadedImage && (
-                  <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative bg-gray-50 rounded-xl overflow-hidden border-2 border-gray-200 flex items-center justify-center" style={{ minHeight: '300px' }}>
+                {uploadedImage ? (
+                  <div className="relative max-w-full max-h-96">
+                    <canvas
+                      ref={canvasRef}
+                      className="block max-w-full max-h-full w-auto h-auto"
+                    />
+                    <canvas
+                      ref={maskCanvasRef}
+                      className="absolute top-0 left-0 max-w-full max-h-full w-auto h-auto cursor-crosshair opacity-40"
+                      style={{ 
+                        touchAction: 'none',
+                        pointerEvents: 'auto'
+                      }}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseLeave}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center w-full h-full">
                     <p className="text-gray-400 text-sm">Your image will appear here</p>
                   </div>
                 )}

@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "docs": "cd docs && mintlify dev",
+    "docs:build": "cd docs && mintlify build",
     "prisma:db:push": "dotenv -e .env.local -- pnpm prisma db push",
     "prisma:generate": "dotenv -e .env.local -- pnpm prisma generate",
     "prisma:migrate:dev": "dotenv -e .env.local -- pnpm prisma migrate dev"
