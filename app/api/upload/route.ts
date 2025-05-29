@@ -5,44 +5,92 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
+    console.log('🚀 Starting file upload process...');
+    
     // Verify user authentication
     const headersList = await headers();
+    const authHeader = headersList.get('authorization');
+    console.log('🔑 Auth header present:', !!authHeader, 'First 10 chars:', authHeader?.slice(0, 10));
+
     const userToken = await verifyUserToken(headersList);
+    console.log('👤 User token verification result:', {
+      isValid: !!userToken,
+      userId: userToken?.userId,
+      timestamp: new Date().toISOString()
+    });
+
     if (!userToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error('❌ Authentication failed - No valid user token');
+      return NextResponse.json({ error: "Unauthorized - No valid user token" }, { status: 401 });
     }
 
     // Get the file from the request
-	 const file = await request.blob();
+    console.log('📦 Attempting to parse form data...');
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
     
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      console.error('❌ No file found in form data');
+      return NextResponse.json({ error: "No file provided in request" }, { status: 400 });
     }
 
-    console.log('📁 Uploading file:', { size: file.size, type: file.type });
-    
+    console.log('📁 File details:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: new Date(file.lastModified).toISOString()
+    });
 
-	 const response = await whopApi
-	.withUser(userToken.userId)
-	.uploadAttachment({
-		file: new File([file], `upload-${Date.now()}.jpg`, {
-			type: "image/jpg",
-		}),
-		record: "forum_post",
-	});
+    // Log the API configuration
+    console.log('🔧 API Configuration:', {
+      userIdForRequest: userToken.userId,
+      timestamp: new Date().toISOString()
+    });
 
-    console.log('✅ File uploaded successfully:', response);
+    console.log('📤 Initiating file upload to Whop...');
+    const response = await whopApi
+      .withUser(userToken.userId)
+      .uploadAttachment({
+        file: file,
+        record: "forum_post",
+      });
 
-    // The response includes the directUploadId and URL
+    console.log('✅ File upload successful:', {
+      directUploadId: response.directUploadId,
+      hasUrl: !!response.attachment?.source?.url,
+      urlPrefix: response.attachment?.source?.url?.slice(0, 20),
+      timestamp: new Date().toISOString()
+    });
+
     return NextResponse.json({
       success: true,
       attachmentId: response.directUploadId,
       url: response.attachment.source.url
     });
+
   } catch (error) {
-    console.error("❌ Error uploading file:", error);
+    console.error('❌ File upload failed:', {
+      errorName: error instanceof Error ? error.name : 'Unknown',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+
+    // If it's an API error, it might have additional details
+    if (error && typeof error === 'object' && 'response' in error) {
+      console.error('📡 API Error Details:', {
+        status: (error as any).response?.status,
+        statusText: (error as any).response?.statusText,
+        data: (error as any).response?.data,
+        headers: (error as any).response?.headers
+      });
+    }
+
     return NextResponse.json(
-      { error: "Failed to upload file" },
+      { 
+        error: "Failed to upload file",
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
