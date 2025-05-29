@@ -15,20 +15,22 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPostingToForum, setIsPostingToForum] = useState(false);
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get current user ID on component mount
+  // Get current user info on component mount
   useEffect(() => {
     const getCurrentUser = async () => {
       try {
         const response = await fetch('/api/current-user');
         if (response.ok) {
           const data = await response.json();
-          setCurrentUserId(data.userId);
+          if (data.user) {
+            setCurrentUser(data.user);
+          }
         }
       } catch (error) {
         console.error('Failed to get current user:', error);
@@ -207,7 +209,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: `@${currentUserId} just modified this car, with the prompt:  
+          message: `@${currentUser?.username || 'User'} just modified this car, with the prompt:  
 "${modificationPrompt}"
 
 Try it yourself here:  

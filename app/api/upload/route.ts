@@ -7,8 +7,8 @@ export async function POST(request: Request) {
   try {
     // Verify user authentication
     const headersList = await headers();
-    const userToken = await verifyUserToken(headersList);
-    if (!userToken) {
+    const { userId } = await verifyUserToken(headersList);
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,11 +22,13 @@ export async function POST(request: Request) {
 
     console.log('📁 Uploading file:', { name: file.name, size: file.size, type: file.type });
     
-    // Upload to Whop
-    const response = await whopApi.uploadAttachment({
-      file: file,
-      record: "forum_post",
-    });
+    // Upload to Whop with the user ID
+    const response = await whopApi
+      .withUser(userId)
+      .uploadAttachment({
+        file: file,
+        record: "forum_post",
+      });
 
     console.log('✅ File uploaded successfully:', response);
 

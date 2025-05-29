@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
     const result = await openai.images.edit({
       model: "gpt-image-1",
       image: originalFile,
-      mask: maskFile,
       prompt: prompt,
       n: 1,
       size: size,
