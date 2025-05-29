@@ -16,9 +16,11 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [isPostingToForum, setIsPostingToForum] = useState(false);
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number>(1);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const isDrawingRef = useRef(false);
@@ -47,10 +49,26 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     }
   }, [uploadedImage]);
 
+  // Handle window resize to maintain proper canvas sizing
+  useEffect(() => {
+    const handleResize = () => {
+      if (uploadedImage) {
+        // Delay to ensure container has updated dimensions
+        setTimeout(() => {
+          initializeCanvases();
+        }, 100);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [uploadedImage]);
+
   const initializeCanvases = () => {
     const canvas = canvasRef.current;
     const maskCanvas = maskCanvasRef.current;
-    if (!canvas || !maskCanvas || !uploadedImage) return;
+    const container = containerRef.current;
+    if (!canvas || !maskCanvas || !uploadedImage || !container) return;
 
     const ctx = canvas.getContext('2d');
     const maskCtx = maskCanvas.getContext('2d');
@@ -69,11 +87,41 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
       maskCanvas.width = imageWidth;
       maskCanvas.height = imageHeight;
 
-      // Remove any explicit CSS sizing - let CSS handle the display scaling
-      canvas.style.width = '';
-      canvas.style.height = '';
-      maskCanvas.style.width = '';
-      maskCanvas.style.height = '';
+      // Calculate image aspect ratio
+      const aspectRatio = imageWidth / imageHeight;
+      setImageAspectRatio(aspectRatio);
+
+      // Calculate display dimensions that maintain aspect ratio within container
+      const containerWidth = container.clientWidth || 400;
+      const maxDisplayWidth = Math.min(containerWidth - 32, 600); // Leave some padding
+      const maxDisplayHeight = 400; // Maximum height we want
+
+      let displayWidth, displayHeight;
+      
+      if (aspectRatio > 1) {
+        // Landscape image
+        displayWidth = Math.min(maxDisplayWidth, imageWidth);
+        displayHeight = displayWidth / aspectRatio;
+        
+        if (displayHeight > maxDisplayHeight) {
+          displayHeight = maxDisplayHeight;
+          displayWidth = displayHeight * aspectRatio;
+        }
+      } else {
+        // Portrait image
+        displayHeight = Math.min(maxDisplayHeight, imageHeight);
+        displayWidth = displayHeight * aspectRatio;
+        
+        if (displayWidth > maxDisplayWidth) {
+          displayWidth = maxDisplayWidth;
+          displayHeight = displayWidth / aspectRatio;
+        }
+      }
+
+      // Set explicit CSS dimensions for both canvases to ensure they're identical
+      const canvasStyle = `width: ${displayWidth}px; height: ${displayHeight}px;`;
+      canvas.style.cssText = canvasStyle;
+      maskCanvas.style.cssText = canvasStyle;
 
       // Draw original image on main canvas at full resolution
       ctx.drawImage(img, 0, 0, imageWidth, imageHeight);
@@ -132,7 +180,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     const internalX = mouseX * scaleX;
     const internalY = mouseY * scaleY;
     
-    // Clamp to canvas bounds
+    // Clamp to canvas bounds to ensure we stay within valid coordinates
     const clampedX = Math.max(0, Math.min(internalWidth - 1, internalX));
     const clampedY = Math.max(0, Math.min(internalHeight - 1, internalY));
     
@@ -143,8 +191,16 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   };
 
   const drawLine = (ctx: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Calculate brush size scaled to internal canvas coordinates
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaledBrushSize = brushSize * scaleX;
+    
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = brushSize;
+    ctx.lineWidth = scaledBrushSize;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
@@ -155,9 +211,17 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   };
 
   const drawCircle = (ctx: CanvasRenderingContext2D, point: { x: number; y: number }) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Calculate brush size scaled to internal canvas coordinates
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaledBrushSize = brushSize * scaleX;
+    
     ctx.fillStyle = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(point.x, point.y, brushSize / 2, 0, 2 * Math.PI);
+    ctx.arc(point.x, point.y, scaledBrushSize / 2, 0, 2 * Math.PI);
     ctx.fill();
   };
 
@@ -273,9 +337,14 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     const maskCtx = maskCanvas.getContext('2d');
     if (!maskCtx) return;
 
-    // Reset to black background
+    // Clear the mask canvas and reset to black background
     maskCtx.fillStyle = '#000000';
     maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    
+    // Reset drawing properties
+    maskCtx.lineCap = 'round';
+    maskCtx.lineJoin = 'round';
+    maskCtx.globalCompositeOperation = 'source-over';
   };
 
   // Helper function to convert data URL to File
@@ -551,16 +620,19 @@ Before vs after ⬇️`,
               </div>
 
               {/* Canvas */}
-              <div className="relative bg-gray-50 rounded-xl overflow-hidden border-2 border-gray-200 flex items-center justify-center" style={{ minHeight: '300px' }}>
+              <div 
+                ref={containerRef}
+                className="relative bg-gray-50 rounded-xl overflow-hidden border-2 border-gray-200 flex items-center justify-center min-h-[300px]"
+              >
                 {uploadedImage ? (
-                  <div className="relative max-w-full max-h-96">
+                  <div className="relative flex items-center justify-center">
                     <canvas
                       ref={canvasRef}
-                      className="block max-w-full max-h-full w-auto h-auto"
+                      className="block"
                     />
                     <canvas
                       ref={maskCanvasRef}
-                      className="absolute top-0 left-0 max-w-full max-h-full w-auto h-auto cursor-crosshair opacity-40"
+                      className="absolute top-0 left-0 cursor-crosshair opacity-40"
                       style={{ 
                         touchAction: 'none',
                         pointerEvents: 'auto'
