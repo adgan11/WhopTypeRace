@@ -15,22 +15,20 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPostingToForum, setIsPostingToForum] = useState(false);
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get current user info on component mount
+  // Get current user ID on component mount
   useEffect(() => {
     const getCurrentUser = async () => {
       try {
         const response = await fetch('/api/current-user');
         if (response.ok) {
           const data = await response.json();
-          if (data.user) {
-            setCurrentUser(data.user);
-          }
+          setCurrentUserId(data.userId);
         }
       } catch (error) {
         console.error('Failed to get current user:', error);
@@ -209,7 +207,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: `@${currentUser?.username || 'User'} just modified this car, with the prompt:  
+          message: `@${currentUserId} just modified this car, with the prompt:  
 "${modificationPrompt}"
 
 Try it yourself here:  
@@ -343,7 +341,7 @@ Before vs after ⬇️`,
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-blue-800 font-semibold">AI car Modification Studio</span>
+          <span className="text-blue-800 font-semibold">AI cajdwjar Modification Studio</span>
         </div>
         <p className="text-gray-600 max-w-2xl mx-auto">
           Transform your car with AI-powered modifications. Upload your car photo, paint the areas you want to change, and watch AI bring your vision to life.

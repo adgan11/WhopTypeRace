@@ -1,34 +1,14 @@
 import { verifyUserToken } from "@whop/api";
 import { whopApi } from "@/lib/whop-api";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { WhopAPI } from "@whop-apps/sdk";
 
 export async function POST(request: Request) {
   try {
-    // Get the Whop user token from cookies
-    const cookieHeader = request.headers.get('cookie');
-    const whopUserToken = cookieHeader?.split(';')
-      .find(c => c.trim().startsWith('whop_user_token='))
-      ?.split('=')[1];
-
-    // Verify user authentication - try cookie first, then fallback to headers
-    let userId: string | undefined;
-    
-    if (whopUserToken) {
-      // When running as an installed Whop app
-      const response = await WhopAPI.me({ token: whopUserToken }).GET("/me", {});
-      userId = response.data?.id;
-    } else {
-      // Fallback for local development
-      const verifiedUser = await verifyUserToken(request.headers);
-      userId = verifiedUser?.userId;
-    }
-
-    if (!userId) {
-      console.error('❌ Authentication failed:', { 
-        hasWhopToken: !!whopUserToken,
-        userId 
-      });
+    // Verify user authentication
+    const headersList = await headers();
+    const userToken = await verifyUserToken(headersList);
+    if (!userToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -40,20 +20,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    console.log('📁 Uploading file:', { 
-      name: file.name, 
-      size: file.size, 
-      type: file.type,
-      userId: userId.slice(0, 8) // Log partial ID for debugging
-    });
+    console.log('📁 Uploading file:', { name: file.name, size: file.size, type: file.type });
     
-    // Upload to Whop with the user ID
+    // Upload to Whop
     const response = await whopApi
-      .withUser(userId)
-      .uploadAttachment({
-        file: file,
-        record: "forum_post",
-      });
+	 .withUser(userToken.userId)
+	 .uploadAttachment({
+      file: file,
+      record: "forum_post",
+    });
 
     console.log('✅ File uploaded successfully:', response);
 
@@ -65,12 +40,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("❌ Error uploading file:", error);
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
-    }
     return NextResponse.json(
       { error: "Failed to upload file" },
       { status: 500 }
