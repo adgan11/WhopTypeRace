@@ -1,14 +1,34 @@
 import { verifyUserToken } from "@whop/api";
 import { whopApi } from "@/lib/whop-api";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { WhopAPI } from "@whop-apps/sdk";
 
 export async function POST(request: Request) {
   try {
-    // Verify user authentication
-    const headersList = await headers();
-    const { userId } = await verifyUserToken(headersList);
+    // Get the Whop user token from cookies
+    const cookieHeader = request.headers.get('cookie');
+    const whopUserToken = cookieHeader?.split(';')
+      .find(c => c.trim().startsWith('whop_user_token='))
+      ?.split('=')[1];
+
+    // Verify user authentication - try cookie first, then fallback to headers
+    let userId: string | undefined;
+    
+    if (whopUserToken) {
+      // When running as an installed Whop app
+      const response = await WhopAPI.me({ token: whopUserToken }).GET("/me", {});
+      userId = response.data?.id;
+    } else {
+      // Fallback for local development
+      const verifiedUser = await verifyUserToken(request.headers);
+      userId = verifiedUser?.userId;
+    }
+
     if (!userId) {
+      console.error('❌ Authentication failed:', { 
+        hasWhopToken: !!whopUserToken,
+        userId 
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -20,7 +40,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    console.log('📁 Uploading file:', { name: file.name, size: file.size, type: file.type });
+    console.log('📁 Uploading file:', { 
+      name: file.name, 
+      size: file.size, 
+      type: file.type,
+      userId: userId.slice(0, 8) // Log partial ID for debugging
+    });
     
     // Upload to Whop with the user ID
     const response = await whopApi
@@ -40,6 +65,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("❌ Error uploading file:", error);
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to upload file" },
       { status: 500 }
