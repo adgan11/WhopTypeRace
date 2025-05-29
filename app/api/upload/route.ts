@@ -19,6 +19,10 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString()
     });
 
+
+
+
+
     if (!userToken) {
       console.error('❌ Authentication failed - No valid user token');
       return NextResponse.json({ error: "Unauthorized - No valid user token" }, { status: 401 });
@@ -47,9 +51,12 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString()
     });
 
+	 const { userId } = await verifyUserToken(headersList);
+
+
     console.log('📤 Initiating file upload to Whop...');
     const response = await whopApi
-      .withUser(userToken.userId)
+      .withUser(userId)
       .uploadAttachment({
         file: file,
         record: "forum_post",
