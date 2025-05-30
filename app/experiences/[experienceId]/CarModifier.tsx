@@ -16,6 +16,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [isPostingToForum, setIsPostingToForum] = useState(false);
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,6 +38,23 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     
     getCurrentUser();
   }, []);
+
+  // Get company ID from experience
+  useEffect(() => {
+    const getCompanyId = async () => {
+      try {
+        const response = await fetch(`/api/experience?experienceId=${experienceId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCompanyId(data.experience.company.id);
+        }
+      } catch (error) {
+        console.error('Failed to get company ID:', error);
+      }
+    };
+    
+    getCompanyId();
+  }, [experienceId]);
 
   // Initialize canvases when image is uploaded
   useEffect(() => {
@@ -211,7 +229,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
 "${modificationPrompt}"
 
 Try it yourself here:  
-https://whop.com/apps/app_S42iB0COVVUVwO/install/
+https://whop.com/hub/${companyId}/${experienceId}/app
 
 Before vs after ⬇️`,
           experienceId,
@@ -223,11 +241,12 @@ Before vs after ⬇️`,
         throw new Error('Failed to post to forum');
       }
 
-      const data = await response.json();
+      const data: { postId: string; forumLink: string; companyId: string } = await response.json();
       setForumSuccess({
         postId: data.postId,
         forumLink: data.forumLink,
       });
+      setCompanyId(data.companyId);
       
     } catch (error) {
       console.error('Error posting to forum:', error);

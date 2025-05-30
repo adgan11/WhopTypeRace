@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       success: true,
       postId: post.id,
       forumLink: forumResult.createForum.link,
+      companyId: companyId
     });
 
   } catch (error) {
