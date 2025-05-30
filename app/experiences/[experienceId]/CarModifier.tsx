@@ -545,7 +545,7 @@ Before vs after ⬇️`,
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-blue-800 font-semibold">AI cajdwjar bbaaModification sStudiooiio</span>
+          <span className="text-blue-800 font-semibold">AI car Modification Studio</span>
         </div>
         <p className="text-gray-600 max-w-2xl mx-auto">
           Transform your car with AI-powered modifications. Upload your car photo, paint the areas you want to change, and watch AI bring your vision to life.
