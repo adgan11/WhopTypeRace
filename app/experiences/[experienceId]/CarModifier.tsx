@@ -373,8 +373,12 @@ Before vs after ⬇️`,
     setForumSuccess(null);
 
     try {
+      console.log('🚗 Starting car modification process...');
+      console.log('📝 Prompt:', prompt);
+      
       // Get the original image as PNG
       const originalDataUrl = canvas.toDataURL('image/png');
+      console.log('📸 Original image size:', originalDataUrl.length, 'characters');
 
       // Create mask with alpha channel
       const maskCtx = maskCanvas.getContext('2d');
@@ -402,29 +406,84 @@ Before vs after ⬇️`,
       // Get the mask as PNG with alpha channel
       const maskDataUrl = maskCanvas.toDataURL('image/png');
       setMaskImage(maskDataUrl);
+      console.log('🎭 Mask image size:', maskDataUrl.length, 'characters');
 
-      // Call our API endpoint
+      const requestPayload = {
+        originalImage: originalDataUrl,
+        maskImage: maskDataUrl,
+        prompt: prompt,
+      };
+      
+      console.log('📡 Sending request to /api/modify-car...');
+      console.log('📦 Payload size:', JSON.stringify(requestPayload).length, 'characters');
+
+      // Call our API endpoint with extended timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Request timeout after 2 minutes');
+        controller.abort();
+      }, 120000); // 2 minute timeout
+
       const response = await fetch('/api/modify-car', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          originalImage: originalDataUrl,
-          maskImage: maskDataUrl,
-          prompt: prompt,
-        }),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to modify car');
+      clearTimeout(timeoutId);
+      
+      console.log('📨 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      // Handle different response types
+      let responseData;
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          responseData = await response.json();
+          console.log('✅ Successfully parsed JSON response:', responseData);
+        } catch (jsonError) {
+          console.error('❌ Failed to parse JSON response:', jsonError);
+          const textResponse = await response.text();
+          console.error('📄 Raw response text:', textResponse);
+          throw new Error(`Server returned invalid JSON. Status: ${response.status}. Response: ${textResponse.substring(0, 200)}...`);
+        }
+      } else {
+        // Handle non-JSON responses (like error pages)
+        const textResponse = await response.text();
+        console.error('❌ Non-JSON response received:', {
+          status: response.status,
+          contentType,
+          text: textResponse.substring(0, 500)
+        });
+        
+        if (response.status === 504) {
+          throw new Error('Request timed out on the server. The AI image processing is taking too long. Please try with a smaller image or simpler prompt.');
+        } else if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}): ${textResponse.substring(0, 200)}`);
+        } else if (response.status >= 400) {
+          throw new Error(`Request error (${response.status}): ${textResponse.substring(0, 200)}`);
+        } else {
+          throw new Error(`Unexpected response format. Status: ${response.status}. Content: ${textResponse.substring(0, 200)}`);
+        }
       }
 
-      const responseData = await response.json();
-      
+      if (!response.ok) {
+        console.error('❌ API request failed:', responseData);
+        throw new Error(responseData?.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
       // Display the modified image
       if (responseData.modifiedImage) {
+        console.log('🎨 Modified image received, size:', responseData.modifiedImage.length, 'characters');
         const modifiedImageDataUrl = `data:image/png;base64,${responseData.modifiedImage}`;
         setMaskImage(modifiedImageDataUrl);
 
@@ -434,21 +493,43 @@ Before vs after ⬇️`,
           
           // Upload original (before) image
           const beforeImageId = await uploadImageToWhop(originalDataUrl, `before-${Date.now()}.png`);
+          console.log('✅ Before image uploaded:', beforeImageId);
           
           // Upload modified (after) image
           const afterImageId = await uploadImageToWhop(modifiedImageDataUrl, `after-${Date.now()}.png`);
+          console.log('✅ After image uploaded:', afterImageId);
           
           // Post to forum with both images
           await postToForum(beforeImageId, afterImageId, prompt);
+          console.log('✅ Forum post created successfully');
           
         } catch (forumError) {
-          console.error('Forum posting failed:', forumError);
+          console.error('❌ Forum posting failed:', forumError);
           // Don't throw here, as the modification was successful
         }
+      } else {
+        console.error('❌ No modified image in response:', responseData);
+        throw new Error('No modified image received from the AI service');
       }
     } catch (error) {
-      console.error('Error:', error);
-      alert(error instanceof Error ? error.message : 'Failed to modify car');
+      console.error('❌ Car modification error:', error);
+      
+      let errorMessage = 'Failed to modify car';
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. The AI processing is taking too long. Please try with a smaller image or simpler prompt.';
+        } else if (error.message.includes('504')) {
+          errorMessage = 'Server timeout. The AI image processing is taking too long. Please try again with a smaller image or simpler prompt.';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      console.error('🚨 Final error message shown to user:', errorMessage);
+      alert(errorMessage);
     } finally {
       setIsProcessing(false);
     }
