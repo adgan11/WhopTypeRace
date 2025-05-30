@@ -17,12 +17,8 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  // Add image dimensions state for proper aspect ratio
-  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
-  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const isDrawingRef = useRef(false);
@@ -62,43 +58,29 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
 
     const img = new Image();
     img.onload = () => {
-      // Store the actual image dimensions
-      setImageDimensions({ width: img.width, height: img.height });
-      
-      // Calculate the display size that fits within the container while maintaining aspect ratio
-      const container = containerRef.current;
-      if (!container) return;
-      
-      const containerRect = container.getBoundingClientRect();
-      const maxWidth = Math.min(containerRect.width - 32, 800); // Leave some padding
-      const maxHeight = 400; // Maximum height for display
-      
-      const aspectRatio = img.width / img.height;
-      let displayWidth = maxWidth;
-      let displayHeight = maxWidth / aspectRatio;
-      
-      if (displayHeight > maxHeight) {
-        displayHeight = maxHeight;
-        displayWidth = maxHeight * aspectRatio;
-      }
+      // Use the actual image dimensions as internal canvas dimensions
+      // This ensures the painting coordinates are always relative to the actual image
+      const imageWidth = img.width;
+      const imageHeight = img.height;
 
-      // Set both canvases to the actual image dimensions internally for high resolution
-      canvas.width = img.width;
-      canvas.height = img.height;
-      maskCanvas.width = img.width;
-      maskCanvas.height = img.height;
+      // Set both canvases to the actual image dimensions internally
+      canvas.width = imageWidth;
+      canvas.height = imageHeight;
+      maskCanvas.width = imageWidth;
+      maskCanvas.height = imageHeight;
 
-      // Set explicit CSS size for both canvases to match exactly
-      const canvasStyle = `width: ${displayWidth}px; height: ${displayHeight}px;`;
-      canvas.style.cssText = canvasStyle;
-      maskCanvas.style.cssText = canvasStyle;
+      // Remove any explicit CSS sizing - let CSS handle the display scaling
+      canvas.style.width = '';
+      canvas.style.height = '';
+      maskCanvas.style.width = '';
+      maskCanvas.style.height = '';
 
       // Draw original image on main canvas at full resolution
-      ctx.drawImage(img, 0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0, imageWidth, imageHeight);
 
       // Initialize mask canvas with black background
       maskCtx.fillStyle = '#000000';
-      maskCtx.fillRect(0, 0, img.width, img.height);
+      maskCtx.fillRect(0, 0, imageWidth, imageHeight);
       
       // Configure mask canvas for smooth drawing
       maskCtx.lineCap = 'round';
@@ -107,42 +89,6 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     };
     img.src = uploadedImage;
   };
-
-  // Add resize observer to handle window resizing
-  useEffect(() => {
-    if (!uploadedImage || !imageDimensions) return;
-
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      const maskCanvas = maskCanvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !maskCanvas || !container) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const maxWidth = Math.min(containerRect.width - 32, 800);
-      const maxHeight = 400;
-      
-      const aspectRatio = imageDimensions.width / imageDimensions.height;
-      let displayWidth = maxWidth;
-      let displayHeight = maxWidth / aspectRatio;
-      
-      if (displayHeight > maxHeight) {
-        displayHeight = maxHeight;
-        displayWidth = maxHeight * aspectRatio;
-      }
-
-      const canvasStyle = `width: ${displayWidth}px; height: ${displayHeight}px;`;
-      canvas.style.cssText = canvasStyle;
-      maskCanvas.style.cssText = canvasStyle;
-    };
-
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(containerRef.current!);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [uploadedImage, imageDimensions]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,7 +105,6 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
       setUploadedImage(imageUrl);
       setMaskImage(null); // Reset mask when new image is uploaded
       setForumSuccess(null); // Reset forum success
-      setImageDimensions(null); // Reset dimensions
     };
     reader.readAsDataURL(file);
   };
@@ -606,19 +551,16 @@ Before vs after ⬇️`,
               </div>
 
               {/* Canvas */}
-              <div 
-                ref={containerRef}
-                className="relative bg-gray-50 rounded-xl overflow-hidden border-2 border-gray-200 flex items-center justify-center min-h-[300px]"
-              >
+              <div className="relative bg-gray-50 rounded-xl overflow-hidden border-2 border-gray-200 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 {uploadedImage ? (
-                  <div className="relative">
+                  <div className="relative max-w-full max-h-96">
                     <canvas
                       ref={canvasRef}
-                      className="block"
+                      className="block max-w-full max-h-full w-auto h-auto"
                     />
                     <canvas
                       ref={maskCanvasRef}
-                      className="absolute top-0 left-0 cursor-crosshair opacity-40"
+                      className="absolute top-0 left-0 max-w-full max-h-full w-auto h-auto cursor-crosshair opacity-40"
                       style={{ 
                         touchAction: 'none',
                         pointerEvents: 'auto'
