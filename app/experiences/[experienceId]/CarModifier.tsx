@@ -17,6 +17,7 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [lastPosition, setLastPosition] = useState<{ x: number; y: number } | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,52 +123,151 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     reader.readAsDataURL(file);
   };
 
-  const getMouseCoordinates = (e: MouseEvent, canvas: HTMLCanvasElement) => {
+  const getMouseCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return { x: -1, y: -1 };
+    
     const rect = canvas.getBoundingClientRect();
-    const containerWidth = rect.width;
-    const containerHeight = rect.height;
     
-    // Calculate the scaling factors
-    const scaleX = canvas.width / containerWidth;
-    const scaleY = canvas.height / containerHeight;
-    
-    // Get mouse position relative to the container
+    // Get mouse position relative to the canvas element
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Scale the coordinates
-    return {
-      x: mouseX * scaleX,
-      y: mouseY * scaleY
-    };
-  };
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    draw(e);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    // Get the actual canvas internal dimensions
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
     
-    const canvas = canvasRef.current;
+    // Get the displayed canvas size (the DOM element size)
+    const displayWidth = rect.width;
+    const displayHeight = rect.height;
+    
+    // Calculate aspect ratios
+    const canvasAspectRatio = canvasWidth / canvasHeight;
+    const displayAspectRatio = displayWidth / displayHeight;
+    
+    // Calculate the actual rendered image dimensions and position within the display area
+    let imageDisplayWidth, imageDisplayHeight, imageOffsetX, imageOffsetY;
+    
+    if (canvasAspectRatio > displayAspectRatio) {
+      // Image is wider relative to display - constrained by display width
+      imageDisplayWidth = displayWidth;
+      imageDisplayHeight = displayWidth / canvasAspectRatio;
+      imageOffsetX = 0;
+      imageOffsetY = (displayHeight - imageDisplayHeight) / 2;
+    } else {
+      // Image is taller relative to display - constrained by display height  
+      imageDisplayHeight = displayHeight;
+      imageDisplayWidth = displayHeight * canvasAspectRatio;
+      imageOffsetX = (displayWidth - imageDisplayWidth) / 2;
+      imageOffsetY = 0;
+    }
+    
+    // Check if mouse is within the actual image area
+    const relativeX = mouseX - imageOffsetX;
+    const relativeY = mouseY - imageOffsetY;
+    
+    if (relativeX < 0 || relativeX > imageDisplayWidth || relativeY < 0 || relativeY > imageDisplayHeight) {
+      return { x: -1, y: -1 }; // Outside image bounds
+    }
+    
+    // Convert to canvas coordinates
+    const canvasX = (relativeX / imageDisplayWidth) * canvasWidth;
+    const canvasY = (relativeY / imageDisplayHeight) * canvasHeight;
+    
+    return { x: canvasX, y: canvasY };
+  };
+
+  const drawAtPosition = (x: number, y: number) => {
     const maskCanvas = maskCanvasRef.current;
-    if (!canvas || !maskCanvas) return;
+    if (!maskCanvas) return;
+
+    // Skip drawing if coordinates are invalid (outside image area)
+    if (x < 0 || y < 0) return;
 
     const maskCtx = maskCanvas.getContext('2d');
     if (!maskCtx) return;
 
-    const coords = getMouseCoordinates(e.nativeEvent, canvas);
-    
-    // Draw white circle on mask canvas
+    // Set up brush properties
+    maskCtx.globalCompositeOperation = 'source-over';
     maskCtx.fillStyle = '#FFFFFF';
+    
+    // Draw circle at position
     maskCtx.beginPath();
-    maskCtx.arc(coords.x, coords.y, brushSize / 2, 0, 2 * Math.PI);
+    maskCtx.arc(x, y, brushSize / 2, 0, 2 * Math.PI);
     maskCtx.fill();
   };
 
-  const stopDrawing = () => {
+  const drawLine = (fromX: number, fromY: number, toX: number, toY: number) => {
+    const maskCanvas = maskCanvasRef.current;
+    if (!maskCanvas) return;
+
+    // Skip drawing if any coordinates are invalid
+    if (fromX < 0 || fromY < 0 || toX < 0 || toY < 0) return;
+
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+
+    // Calculate distance between points
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // If distance is small, just draw at the end point
+    if (distance < 2) {
+      drawAtPosition(toX, toY);
+      return;
+    }
+    
+    // Draw interpolated points along the line for smooth strokes
+    const steps = Math.ceil(distance / 2);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = fromX + dx * t;
+      const y = fromY + dy * t;
+      drawAtPosition(x, y);
+    }
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    
+    const coords = getMouseCoordinates(e);
+    
+    // Only start drawing if coordinates are valid (within image area)
+    if (coords.x >= 0 && coords.y >= 0) {
+      setIsDrawing(true);
+      setLastPosition(coords);
+      drawAtPosition(coords.x, coords.y);
+    }
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    
+    const coords = getMouseCoordinates(e);
+    
+    // Stop drawing if mouse moves outside image area
+    if (coords.x < 0 || coords.y < 0) {
+      stopDrawing();
+      return;
+    }
+    
+    if (lastPosition && lastPosition.x >= 0 && lastPosition.y >= 0) {
+      // Draw smooth line from last position to current position
+      drawLine(lastPosition.x, lastPosition.y, coords.x, coords.y);
+    } else {
+      // Fallback - just draw at current position
+      drawAtPosition(coords.x, coords.y);
+    }
+    
+    setLastPosition(coords);
+  };
+
+  const stopDrawing = (e?: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e) e.preventDefault();
     setIsDrawing(false);
+    setLastPosition(null);
   };
 
   const clearMask = () => {
@@ -180,6 +280,10 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     // Reset to black background
     maskCtx.fillStyle = '#000000';
     maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    
+    // Reset drawing state
+    setIsDrawing(false);
+    setLastPosition(null);
   };
 
   // Helper function to convert data URL to File
@@ -464,13 +568,61 @@ Before vs after ⬇️`,
                 />
                 <canvas
                   ref={maskCanvasRef}
-                  className="absolute top-0 left-0 w-full h-full cursor-crosshair opacity-40"
-                  style={{ objectFit: 'contain' }}
+                  className="absolute top-0 left-0 w-full h-full cursor-crosshair"
+                  style={{ objectFit: 'contain', opacity: 0.4 }}
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
                   onMouseLeave={stopDrawing}
+                  onContextMenu={(e) => e.preventDefault()}
                 />
+                {/* Debug overlay to show drawable area */}
+                {uploadedImage && (
+                  <div 
+                    className="absolute border-2 border-red-500 border-dashed pointer-events-none"
+                    style={{
+                      top: '0',
+                      left: '0',
+                      width: '100%',
+                      height: '100%',
+                      background: 'transparent'
+                    }}
+                    ref={(div) => {
+                      if (div && maskCanvasRef.current) {
+                        const canvas = maskCanvasRef.current;
+                        const rect = canvas.getBoundingClientRect();
+                        const divRect = div.getBoundingClientRect();
+                        
+                        const canvasWidth = canvas.width;
+                        const canvasHeight = canvas.height;
+                        const displayWidth = rect.width;
+                        const displayHeight = rect.height;
+                        
+                        const canvasAspectRatio = canvasWidth / canvasHeight;
+                        const displayAspectRatio = displayWidth / displayHeight;
+                        
+                        let imageDisplayWidth, imageDisplayHeight, imageOffsetX, imageOffsetY;
+                        
+                        if (canvasAspectRatio > displayAspectRatio) {
+                          imageDisplayWidth = displayWidth;
+                          imageDisplayHeight = displayWidth / canvasAspectRatio;
+                          imageOffsetX = 0;
+                          imageOffsetY = (displayHeight - imageDisplayHeight) / 2;
+                        } else {
+                          imageDisplayHeight = displayHeight;
+                          imageDisplayWidth = displayHeight * canvasAspectRatio;
+                          imageOffsetX = (displayWidth - imageDisplayWidth) / 2;
+                          imageOffsetY = 0;
+                        }
+                        
+                        div.style.left = `${imageOffsetX}px`;
+                        div.style.top = `${imageOffsetY}px`;
+                        div.style.width = `${imageDisplayWidth}px`;
+                        div.style.height = `${imageDisplayHeight}px`;
+                      }
+                    }}
+                  />
+                )}
                 {!uploadedImage && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <p className="text-gray-400 text-sm">Your image will appear here</p>
