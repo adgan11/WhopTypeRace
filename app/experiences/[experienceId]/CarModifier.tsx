@@ -13,11 +13,13 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [brushSize, setBrushSize] = useState(20);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [isPostingToForum, setIsPostingToForum] = useState(false);
   const [forumSuccess, setForumSuccess] = useState<{ postId: string; forumLink: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [lastPosition, setLastPosition] = useState<{ x: number; y: number } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -104,23 +106,65 @@ export default function CarModifier({ experienceId }: CarModifierProps) {
     img.src = uploadedImage;
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file');
+      setUploadError('Please upload an image file');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string;
+    setIsValidating(true);
+    setUploadError(null);
+
+    try {
+      console.log('📸 Reading uploaded file...');
+      const reader = new FileReader();
+      
+      const imageUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            resolve(event.target.result as string);
+          } else {
+            reject(new Error('Failed to read file'));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      console.log('🔍 Validating image...');
+      const response = await fetch('/api/validate-car-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to validate image');
+      }
+
+      if (!data.containsCar) {
+        setUploadError('Please upload only images of cars!');
+        return;
+      }
+
+      console.log('✅ Image validated successfully');
       setUploadedImage(imageUrl);
       setMaskImage(null); // Reset mask when new image is uploaded
       setForumSuccess(null); // Reset forum success
-    };
-    reader.readAsDataURL(file);
+      
+    } catch (error) {
+      console.error('❌ Image validation error:', error);
+      setUploadError(error instanceof Error ? error.message : 'Failed to validate image');
+    } finally {
+      setIsValidating(false);
+    }
   };
 
   const getMouseCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -545,7 +589,7 @@ Before vs after ⬇️`,
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-blue-800 font-semibold">AI car Modification Studio</span>
+          <span className="text-blue-800 font-semibold">AI Car Modification Studio</span>
         </div>
         <p className="text-gray-600 max-w-2xl mx-auto">
           Transform your car with AI-powered modifications. Upload your car photo, paint the areas you want to change, and watch AI bring your vision to life.
@@ -553,7 +597,7 @@ Before vs after ⬇️`,
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Step 1: Upload */}
+        {/* Step 1: Upload Car Image */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">1</div>
@@ -562,33 +606,55 @@ Before vs after ⬇️`,
           
           <div className="space-y-4">
             <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
-              uploadedImage 
-                ? 'border-blue-300 bg-blue-50' 
-                : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+              isValidating ? 'border-yellow-300 bg-yellow-50' :
+              uploadedImage ? 'border-blue-300 bg-blue-50' : 
+              'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
             }`}>
               <input
-                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
                 id="car-image-upload"
+                ref={fileInputRef}
+                disabled={isValidating}
               />
               <label
                 htmlFor="car-image-upload"
-                className="cursor-pointer block"
+                className={`cursor-pointer block ${isValidating ? 'cursor-wait' : ''}`}
               >
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                </div>
-                <div className="text-blue-600 font-medium mb-1">Click to upload</div>
-                <div className="text-gray-500 text-sm">PNG, JPG up to 25MB</div>
+                {isValidating ? (
+                  <>
+                    <div className="w-12 h-12 mx-auto mb-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent"></div>
+                    </div>
+                    <div className="text-yellow-600 font-medium mb-1">Validating image...</div>
+                    <div className="text-yellow-500 text-sm">Please wait</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div className="text-blue-600 font-medium mb-1">Click to upload</div>
+                    <div className="text-gray-500 text-sm">PNG, JPG up to 25MB</div>
+                  </>
+                )}
               </label>
             </div>
             
-            {uploadedImage && (
+            {uploadError && (
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium">{uploadError}</span>
+              </div>
+            )}
+
+            {uploadedImage && !uploadError && (
               <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-2 rounded-lg">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
