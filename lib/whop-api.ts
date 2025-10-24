@@ -12,7 +12,6 @@ const AGENT_USER_ID =
 
 export const whopApi = WhopServerSdk({
   appApiKey: process.env.WHOP_API_KEY ?? 'fallback',
-  appId: APP_ID,
   ...(AGENT_USER_ID ? { onBehalfOfUserId: AGENT_USER_ID } : {}),
 });
 
