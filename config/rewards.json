@@ -1,0 +1,26 @@
+[
+  {
+    "id": "wpm75_acc95",
+    "minWpm": 75,
+    "minAccuracy": 95,
+    "amount": 15
+  },
+  {
+    "id": "wpm90_acc92",
+    "minWpm": 90,
+    "minAccuracy": 92,
+    "amount": 25
+  },
+  {
+    "id": "wpm100_acc90",
+    "minWpm": 100,
+    "minAccuracy": 90,
+    "amount": 35
+  },
+  {
+    "id": "wpm150_acc75",
+    "minWpm": 150,
+    "minAccuracy": 75,
+    "amount": 40
+  }
+]

@@ -1,7 +1,7 @@
 import { whopApi } from "@/lib/whop-api";
 import { verifyUserToken } from "@whop/api";
 import { headers } from "next/headers";
-import CarModifier from "./CarModifier";
+import TypingTest from "@/components/typing-test";
 
 export default async function ExperiencePage({
   params,
@@ -20,19 +20,21 @@ export default async function ExperiencePage({
 
   if (!result.hasAccessToExperience.hasAccess) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-gray-600">You do not have access to this experience.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#050507]">
+        <div className="rounded-2xl bg-[#0f1016] p-8 text-center shadow-xl shadow-black/40 ring-1 ring-rose-900/30">
+          <h1 className="mb-3 text-2xl font-bold text-rose-300">Access Denied</h1>
+          <p className="text-sm text-zinc-400">
+            You do not currently have access to this experience.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <CarModifier experienceId={experienceId} />
+    <div className="min-h-screen bg-[#050507] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl">
+        <TypingTest />
       </div>
     </div>
   );

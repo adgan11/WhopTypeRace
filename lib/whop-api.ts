@@ -1,18 +1,22 @@
-import { WhopServerSdk, makeUserTokenVerifier } from "@whop/api";
+import { WhopServerSdk, makeUserTokenVerifier } from '@whop/api';
+
+const APP_ID =
+  process.env.WHOP_APP_ID ??
+  process.env.NEXT_PUBLIC_WHOP_APP_ID ??
+  'fallback';
+
+const AGENT_USER_ID =
+  process.env.WHOP_AGENT_USER_ID ??
+  process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID ??
+  undefined;
 
 export const whopApi = WhopServerSdk({
-  // Add your app api key here - this is required.
-  // You can get this from the Whop dashboard after creating an app in the "API Keys" section.
-  appApiKey: process.env.WHOP_API_KEY ?? "fallback",
-
-  // This will make api requests on behalf of this user.
-  // This is optional, however most api requests need to be made on behalf of a user.
-  // You can create an agent user for your app, and use their userId here.
-  // You can also apply a different userId later with the `withUser` function.
-  onBehalfOfUserId: "user_mL0O4696bfP9u",
+  appApiKey: process.env.WHOP_API_KEY ?? 'fallback',
+  appId: APP_ID,
+  ...(AGENT_USER_ID ? { onBehalfOfUserId: AGENT_USER_ID } : {}),
 });
 
 export const verifyUserToken = makeUserTokenVerifier({
-  appId: process.env.WHOP_APP_ID ?? "fallback",
+  appId: APP_ID,
   dontThrow: true,
 });

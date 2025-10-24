@@ -14,9 +14,11 @@
     "prisma:migrate:dev": "dotenv -e .env.local -- pnpm prisma migrate dev"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.47.10",
     "@vercel/functions": "^2.0.3",
     "@whop-apps/sdk": "0.0.1-canary.111",
     "@whop/api": "^0.0.21-canary.4",
+    "mint-mcp": "^1.0.133",
     "next": "15.3.2",
     "openai": "^4.103.0",
     "react": "^19.0.0",
