@@ -25,35 +25,30 @@ export async function POST(request: NextRequest): Promise<Response> {
 	// Validate the webhook to ensure it's from Whop
 	const webhookData = await validateWebhook(request);
 
+	const payload = webhookData.data as unknown;
+
 	const actionableEvents = new Set([
 		"payment.succeeded",
 		"purchase.completed",
 	]);
 
 	if (actionableEvents.has(webhookData.action)) {
-		const userId =
-			webhookData.data?.user_id ??
-			webhookData.data?.buyer?.id ??
-			webhookData.data?.access_pass?.user_id ??
-			null;
+		const userId = extractUserId(payload);
 
 		if (!userId) {
 			console.warn(
 				`Webhook ${webhookData.action} received without a user id`,
-				webhookData.data,
+				payload,
 			);
 		} else {
-			const amount =
-				Number(webhookData.data?.final_amount ?? 0) ||
-				Number(webhookData.data?.amount ?? 0) ||
-				0;
+			const amount = extractPurchaseAmount(payload);
 
 			console.log(
 				`Processing ${webhookData.action} for ${userId}. Purchase amount: ${amount}.`,
 			);
 
 			const companySummary = extractCompanySummary(
-				webhookData.data?.company ?? null,
+				getCompanyFragment(payload),
 			);
 
 			waitUntil(handleCreditGrant(userId, companySummary));
@@ -97,6 +92,61 @@ async function handleCreditGrant(
 	} catch (error) {
 		console.error("Unexpected error granting credits", error);
 	}
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+	return value as Record<string, unknown>;
+}
+
+function extractUserId(data: unknown): string | null {
+	const record = asRecord(data);
+	if (!record) return null;
+
+	if (typeof record.user_id === "string" && record.user_id.length > 0) {
+		return record.user_id;
+	}
+
+	const buyer = asRecord(record.buyer);
+	if (buyer && typeof buyer.id === "string" && buyer.id.length > 0) {
+		return buyer.id;
+	}
+
+	const accessPass = asRecord(record.access_pass);
+	if (
+		accessPass &&
+		typeof accessPass.user_id === "string" &&
+		accessPass.user_id.length > 0
+	) {
+		return accessPass.user_id;
+	}
+
+	return null;
+}
+
+function extractPurchaseAmount(data: unknown): number {
+	const record = asRecord(data);
+	if (!record) return 0;
+
+	const finalAmount = Number(record.final_amount);
+	if (Number.isFinite(finalAmount) && finalAmount > 0) {
+		return finalAmount;
+	}
+
+	const amount = Number(record.amount);
+	if (Number.isFinite(amount) && amount > 0) {
+		return amount;
+	}
+
+	return 0;
+}
+
+function getCompanyFragment(data: unknown): unknown {
+	const record = asRecord(data);
+	if (!record) return null;
+	return record.company ?? null;
 }
 
 function extractCompanySummary(
