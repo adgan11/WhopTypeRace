@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { verifyUserToken } from '@whop/api';
+import { verifyUserToken, type GetUserQuery } from '@whop/api';
 import { whopApi } from '@/lib/whop-api';
 import { getSupabaseServerClient } from '@/lib/supabase-server';
 import {
@@ -23,6 +23,14 @@ type SupabaseUserRow = {
   company_owner_user_id?: string | null;
   company_owner_username?: string | null;
   company_owner_name?: string | null;
+};
+
+type ExtendedWhopUserQuery = GetUserQuery & {
+  user?: {
+    username?: string | null;
+    profile?: { username?: string | null } | null;
+    displayName?: string | null;
+  } | null;
 };
 
 async function ensureUserRecord(
@@ -107,22 +115,26 @@ export async function GET() {
     let username: string | null = null;
 
     try {
-      const userResponse = await whopApi.getUser({ userId });
+      const userResponse = (await whopApi.getUser({
+        userId,
+      })) as ExtendedWhopUserQuery;
+      const privateUser = userResponse.user ?? null;
+      const publicUser = userResponse.publicUser ?? null;
       console.log('Fetched Whop user', {
         whopUserId: userId,
-        username: userResponse.user?.username,
-        profileUsername: userResponse.user?.profile?.username,
-        displayName: userResponse.user?.displayName,
-        publicUsername: userResponse.publicUser?.username,
-        publicName: userResponse.publicUser?.name,
+        username: privateUser?.username ?? publicUser?.username ?? null,
+        profileUsername: privateUser?.profile?.username ?? null,
+        displayName: privateUser?.displayName ?? publicUser?.name ?? null,
+        publicUsername: publicUser?.username ?? null,
+        publicName: publicUser?.name ?? null,
         raw: userResponse,
       });
       username =
-        userResponse.user?.username ??
-        userResponse.user?.profile?.username ??
-        userResponse.user?.displayName ??
-        userResponse.publicUser?.username ??
-        userResponse.publicUser?.name ??
+        privateUser?.username ??
+        privateUser?.profile?.username ??
+        privateUser?.displayName ??
+        publicUser?.username ??
+        publicUser?.name ??
         null;
     } catch (error) {
       console.warn('Unable to fetch Whop username for user', userId, error);
