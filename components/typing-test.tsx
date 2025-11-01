@@ -154,6 +154,7 @@ export default function TypingTest() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showRewards, setShowRewards] = useState(false);
   const [lastAccuracy, setLastAccuracy] = useState(0);
 
   const planId = process.env.NEXT_PUBLIC_WHOP_PLAN_ID;
@@ -858,12 +859,16 @@ export default function TypingTest() {
       : '0';
 
   const showPrompt = words.length > 0;
+  const rewardTiers = useMemo(
+    () => [...REWARD_CONFIG].sort((a, b) => a.minWpm - b.minWpm),
+    [],
+  );
 
   return (
-    <div className="relative mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl flex-col gap-8 rounded-3xl bg-[#09090b] p-8 shadow-xl shadow-emerald-900/20 ring-1 ring-emerald-900/40">
+    <div className="relative mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl flex-col gap-8 rounded-3xl bg-[#09090b] p-6 shadow-xl shadow-emerald-900/20 ring-1 ring-emerald-900/40 sm:p-8">
       <div className="flex flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-200">
-          <div className="flex flex-col gap-2">
+        <header className="flex flex-col gap-4 text-sm text-zinc-200 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:max-w-md">
             <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-zinc-400">
               <span>Credits</span>
               <span className="rounded-full bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-200">
@@ -876,7 +881,7 @@ export default function TypingTest() {
                 {totalEarnedDisplay}
               </span>
             </div>
-            <div className="flex items-center gap-4 text-base font-medium">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium sm:text-base">
               <span>
                 Timer:{' '}
                 <span className="font-semibold text-emerald-200">
@@ -909,7 +914,7 @@ export default function TypingTest() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
             {player?.credits !== undefined && player.credits <= 0 && (
               <button
                 type="button"
@@ -917,7 +922,7 @@ export default function TypingTest() {
                   void handlePurchaseCredits();
                 }}
                 disabled={isPurchaseDisabled}
-                className="rounded-full bg-emerald-500/20 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-emerald-200 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                className="w-full rounded-full bg-emerald-500/20 px-4 py-2 text-center text-sm font-semibold uppercase tracking-wide text-emerald-200 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500 sm:w-auto"
               >
                 {isPurchasing ? 'Processing…' : 'Buy Credits'}
               </button>
@@ -925,9 +930,19 @@ export default function TypingTest() {
             <button
               type="button"
               onClick={() => {
+                setShowRewards((previous) => !previous);
+              }}
+              aria-expanded={showRewards}
+              className="w-full rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-center text-sm font-semibold text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 sm:w-auto"
+            >
+              {showRewards ? 'Hide Reward Tiers' : 'View Reward Tiers'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setShowHistory((previous) => !previous);
               }}
-              className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+              className="w-full rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-center text-sm font-semibold text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 sm:w-auto"
             >
               {showHistory ? 'Close Game History' : 'View Game History'}
             </button>
@@ -935,7 +950,7 @@ export default function TypingTest() {
               type="button"
               onClick={startTest}
               disabled={isStartDisabled}
-              className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-emerald-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+              className="w-full rounded-full bg-emerald-500 px-5 py-2 text-center text-sm font-semibold text-emerald-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 sm:w-auto"
             >
               {isRunning ? 'Running' : 'Start'}
             </button>
@@ -946,7 +961,7 @@ export default function TypingTest() {
                 setIsRunning(false);
               }}
               disabled={isRunning}
-              className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:text-zinc-500"
+              className="w-full rounded-full border border-zinc-700 px-4 py-2 text-center text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:text-zinc-500 sm:w-auto"
             >
               Reset
             </button>
@@ -956,7 +971,7 @@ export default function TypingTest() {
                 void finishTest();
               }}
               disabled={!isRunning || isProcessingResult}
-              className="rounded-full border border-emerald-500/40 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-500 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:text-zinc-500"
+              className="w-full rounded-full border border-emerald-500/40 px-4 py-2 text-center text-sm font-semibold text-emerald-200 transition hover:border-emerald-500 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:text-zinc-500 sm:w-auto"
             >
               Finish
             </button>
@@ -983,13 +998,45 @@ export default function TypingTest() {
             {playerError}
           </div>
         )}
+        {showRewards && rewardTiers.length > 0 && (
+          <section className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-zinc-200 shadow-inner shadow-emerald-900/10 sm:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+              <h2 className="text-base font-semibold uppercase tracking-wide text-emerald-200 sm:text-lg">
+                Reward Tiers
+              </h2>
+              <p className="text-xs text-zinc-400 sm:text-sm">
+                Hit these WPM and accuracy goals in a single run to unlock the payout.
+              </p>
+            </div>
+            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {rewardTiers.map((reward) => (
+                <li
+                  key={reward.id}
+                  className="flex flex-col justify-between rounded-2xl border border-emerald-500/30 bg-[#0b0c12] p-4 shadow shadow-emerald-900/20"
+                >
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-sm font-semibold uppercase tracking-wide text-emerald-300">
+                      {reward.minWpm} WPM
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      Accuracy ≥ {reward.minAccuracy}%
+                    </span>
+                  </div>
+                  <span className="mt-3 text-lg font-bold text-emerald-200">
+                    Earn ${reward.amount.toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       <div
         ref={arenaRef}
         tabIndex={-1}
         onClick={focusArena}
-        className="relative flex min-h-[280px] flex-1 cursor-text rounded-3xl border border-emerald-950/40 bg-[#0f1016] px-6 py-8 shadow-inner shadow-black/60 ring-1 ring-emerald-900/30 focus:outline-none"
+        className="relative flex min-h-[260px] flex-1 cursor-text rounded-3xl border border-emerald-950/40 bg-[#0f1016] px-5 py-6 shadow-inner shadow-black/60 ring-1 ring-emerald-900/30 focus:outline-none sm:px-6 sm:py-8"
       >
         {!showPrompt && (
           <div className="m-auto text-sm text-zinc-500">Generating prompt…</div>
@@ -1011,12 +1058,10 @@ export default function TypingTest() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-400">
-        <div>
-          <span className="font-semibold text-zinc-200">How to play:</span>{' '}
-          Hit Start, type the prompt directly, and press space between each word. The run ends
-          after 30 seconds or when you finish early.
-        </div>
+      <div className="rounded-2xl border border-zinc-800/60 bg-[#0f111a] px-4 py-3 text-xs text-zinc-400 sm:text-sm">
+        <span className="font-semibold text-zinc-200">How to play:</span> Hit Start, type the prompt
+        directly, and press space between each word. The run ends after 30 seconds or when you finish
+        early.
       </div>
 
       {showHistory && (
